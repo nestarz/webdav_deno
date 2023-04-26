@@ -77,13 +77,9 @@ function createListObjects(s3Client: S3Client, getCacheKey: () => string) {
   }): AsyncGenerator<S3Object> {
     const currentCacheKey = getCacheKey();
     if (currentCacheKey !== cacheKey) {
-      console.log("listing...", currentCacheKey);
       cacheKey = currentCacheKey;
       cache = [];
-      for await (const iterator of s3Client.listObjects()) {
-        console.error("lol", currentCacheKey, prefix, iterator.key);
-        cache.push(iterator);
-      }
+      for await (const iterator of s3Client.listObjects()) cache.push(iterator);
     }
 
     for (const entry of cache) {
@@ -169,7 +165,6 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
           isDirectory,
           isSymlink: false,
         };
-        console.log("rdir", obj.name);
         yield obj;
       }
     },
