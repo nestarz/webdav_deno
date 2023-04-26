@@ -18,6 +18,17 @@ async function entityTag(entity: Uint8Array) {
   return `"${entity.length.toString(16)}-${hash}"`;
 }
 
+const slugify = (text: string) =>
+  text
+    ?.toString()
+    ?.normalize("NFD")
+    ?.replace(/[\u0300-\u036f]/g, "")
+    ?.toLowerCase()
+    ?.trim()
+    ?.replace(/\s+/g, "-")
+    ?.replace(/[^\w-]+/g, "")
+    ?.replace(/--+/g, "-");
+
 interface FileSystem {
   remove(key: string): Promise<void>;
   stat(key: string): Promise<Partial<Deno.FileInfo> & { etag?: string }>;
@@ -31,6 +42,7 @@ interface FileSystem {
     method: "GET" | "PUT" | "HEAD" | "DELETE",
     key: string
   ): Promise<string>;
+  refreshCacheKey?(): void;
 }
 
 const createDenoFileSystem = (): FileSystem => ({
@@ -107,6 +119,7 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
   const statObject = createStatObject(s3Client, getCacheKey);
 
   return {
+    refreshCacheKey: () => void (cacheKey = getRandomKey()),
     remove: async (key: string): Promise<void> => {
       const isDirectory = key.endsWith("/") || key === "";
       if (!isDirectory) await s3Client.deleteObject(key);
@@ -124,7 +137,6 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
       const hasChilds = isDirectory
         ? (await listObjects({ prefix: key }).next()).value
         : null;
-      console.log(key);
       return hasChilds || key === ""
         ? { isFile: false, isDirectory: true }
         : await statObject(key).then((obj) => ({
@@ -162,7 +174,9 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
       }
     },
     getPresignedUrl: async (method, key) => {
-      return await s3Client.getPresignedUrl(method, key);
+      const key_ =
+        method === "PUT" ? key.split(".").map(slugify).join(".") : key;
+      return await s3Client.getPresignedUrl(method, key_);
     },
     writeFile: async (
       key: string,

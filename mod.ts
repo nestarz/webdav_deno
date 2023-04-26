@@ -43,12 +43,16 @@ export const handleOPTIONS: Handler = (_req: Request) => {
 };
 
 export const handlePUT: Handler = async (req: Request, { IO }, { path }) => {
+  const contentType = req.headers.get("content-length");
   const contentLengthStr = req.headers.get("content-length");
   const contentLength = contentLengthStr ? parseInt(contentLengthStr) : null;
-  const body = contentLength === 0 ? new Uint8Array([0]) : req.body;
+  const body =
+    contentLength === 0 ? new Uint8Array([0]) : await req.arrayBuffer();
   if (IO.getPresignedUrl) {
     const presignedUrl = await IO.getPresignedUrl("PUT", path);
-    await fetch(presignedUrl, { method: "PUT", body });
+    const headers = { ...(contentType ? { "content-type": contentType } : {}) };
+    await fetch(presignedUrl, { method: "PUT", body, headers });
+    IO.refreshCacheKey?.();
     return new Response("Created", { status: 201 });
   }
   await IO.writeFile(path, body, contentLength);
