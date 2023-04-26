@@ -43,13 +43,14 @@ export const handleOPTIONS: Handler = (_req: Request) => {
 };
 
 export const handlePUT: Handler = async (req: Request, { IO }, { path }) => {
-  if (IO.getPresignedUrl) {
-    const presignedUrl = await IO.getPresignedUrl("PUT", path);
-    return Response.redirect(presignedUrl, 307);
-  }
-  const body =
-    req.headers.get("content-length") === "0" ? new Uint8Array([0]) : req.body;
-  await IO.writeFile(path, body);
+  // if (IO.getPresignedUrl) {
+  //   const presignedUrl = await IO.getPresignedUrl("PUT", path);
+  //   return Response.redirect(presignedUrl, 307);
+  // }
+  const contentLengthStr = req.headers.get("content-length");
+  const contentLength = contentLengthStr ? parseInt(contentLengthStr) : null;
+  const body = contentLength === 0 ? new Uint8Array([0]) : req.body;
+  await IO.writeFile(path, body, contentLength);
   return new Response("Created", { status: 201 });
 };
 

@@ -23,7 +23,7 @@ interface FileSystem {
   stat(key: string): Promise<Partial<Deno.FileInfo> & { etag?: string }>;
   readFile(key: string): Promise<Uint8Array>;
   readDir(key: string): AsyncIterable<Deno.DirEntry>;
-  writeFile(key: string, value: Request["body"]): Promise<void>;
+  writeFile(key: string, value: Request["body"], size?: number): Promise<void>;
   move(key: string, nextKey: string): Promise<void>;
   copy(key: string, nextKey: string): Promise<void>;
   ensureDir(key: string): Promise<void>;
@@ -163,9 +163,13 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
     getPresignedUrl: async (method, key) => {
       return await s3Client.getPresignedUrl(method, key);
     },
-    writeFile: async (key: string, value: Request["body"]): Promise<void> => {
+    writeFile: async (
+      key: string,
+      value: Request["body"],
+      size: number
+    ): Promise<void> => {
       if (!value) return;
-      await s3Client.putObject(key, value);
+      await s3Client.putObject(key, value, { size });
       cacheKey = getRandomKey();
     },
     move: async (key: string, nextKey: string): Promise<void> => {
