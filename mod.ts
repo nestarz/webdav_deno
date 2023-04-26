@@ -43,10 +43,10 @@ export const handleOPTIONS: Handler = (_req: Request) => {
 };
 
 export const handlePUT: Handler = async (req: Request, { IO }, { path }) => {
-  // if (IO.getPresignedUrl) {
-  //   const presignedUrl = await IO.getPresignedUrl("GET", path);
-  //   return Response.redirect(presignedUrl, 307);
-  // }
+  if (IO.getPresignedUrl) {
+    const presignedUrl = await IO.getPresignedUrl("PUT", path);
+    return Response.redirect(presignedUrl, 307);
+  }
   const body =
     req.headers.get("content-length") === "0" ? new Uint8Array([0]) : req.body;
   await IO.writeFile(path, body);
