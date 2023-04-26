@@ -46,8 +46,7 @@ export const handlePUT: Handler = async (req: Request, { IO }, { path }) => {
   const contentType = req.headers.get("content-length");
   const contentLengthStr = req.headers.get("content-length");
   const contentLength = contentLengthStr ? parseInt(contentLengthStr) : null;
-  const body =
-    contentLength === 0 ? new Uint8Array([0]) : await req.arrayBuffer();
+  const body = contentLength === 0 ? new Uint8Array([0]) : req.body;
   if (IO.getPresignedUrl) {
     const presignedUrl = await IO.getPresignedUrl("PUT", path);
     const headers = { ...(contentType ? { "content-type": contentType } : {}) };
