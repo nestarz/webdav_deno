@@ -124,7 +124,8 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
       const hasChilds = isDirectory
         ? (await listObjects({ prefix: key }).next()).value
         : null;
-      return hasChilds
+      console.log(key);
+      return hasChilds || key === ""
         ? { isFile: false, isDirectory: true }
         : await statObject(key).then((obj) => ({
             isFile: true,
