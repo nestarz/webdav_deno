@@ -11,7 +11,7 @@ import {
 } from "https://deno.land/x/rutt@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.184.0/http/server.ts";
 import { S3Client } from "https://deno.land/x/s3_lite_client@0.5.0/mod.ts";
-import { createS3FileSystem, methods } from "https://deno.land/x/webdav_deno@0.1.0/mod.ts";
+import { createS3FileSystem, methods } from "https://deno.land/x/webdav_deno/mod.ts";
 
 const auth = (fn: MatchHandler) => {
   const handler: MatchHandler = (req: Request, ...props) => {
