@@ -112,7 +112,14 @@ function createStatObject(s3Client: S3Client, getCacheKey: () => string) {
   return statObject;
 }
 
-const createS3FileSystem = (s3Client: S3Client): FileSystem => {
+export interface S3Options {
+  partSize?: number;
+}
+
+const createS3FileSystem = (
+  s3Client: S3Client,
+  options?: S3Options
+): FileSystem => {
   let cacheKey = "";
   const getRandomKey = () => Math.random().toString(36);
   const getCacheKey = () => cacheKey;
@@ -188,7 +195,7 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
       const sluggedKey = key.split(".").map(slugify).join(".");
       await s3Client.putObject(sluggedKey, value, {
         size,
-        partSize: 5 * 1024 * 1024,
+        partSize: options?.partSize ?? 64 * 1024 * 1024,
         metadata: contentType ? { "Content-Type": contentType } : {},
       });
       cacheKey = getRandomKey();
