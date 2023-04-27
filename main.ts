@@ -5,7 +5,7 @@ import {
   type MatchHandler,
 } from "https://deno.land/x/rutt@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.184.0/http/server.ts";
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.5.0/mod.ts";
+import { S3Client } from "https://raw.githubusercontent.com/nestarz/deno-s3-lite-client/patch-1/mod.ts";
 import { createS3FileSystem, methods } from "./mod.ts";
 
 const auth = (fn: MatchHandler) => {
