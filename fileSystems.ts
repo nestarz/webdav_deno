@@ -185,7 +185,8 @@ const createS3FileSystem = (s3Client: S3Client): FileSystem => {
       contentType?: string
     ): Promise<void> => {
       if (!value) return;
-      await s3Client.putObject(key, value, {
+      const sluggedKey = key.split(".").map(slugify).join(".");
+      await s3Client.putObject(sluggedKey, value, {
         size,
         partSize: 5 * 1024 * 1024,
         metadata: contentType ? { "Content-Type": contentType } : {},
