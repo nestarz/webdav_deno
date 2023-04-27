@@ -192,7 +192,10 @@ const createS3FileSystem = (
       contentType?: string
     ): Promise<void> => {
       if (!value) return;
-      const sluggedKey = key.split(".").map(slugify).join(".");
+      const sluggedKey = key
+        .split("/")
+        .map((v) => v.split(".").map(slugify).join("."))
+        .join("/");
       await s3Client.putObject(sluggedKey, value, {
         size,
         partSize: options?.partSize ?? 64 * 1024 * 1024,
