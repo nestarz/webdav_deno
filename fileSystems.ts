@@ -4,31 +4,6 @@ import type {
   ObjectStatus,
 } from "https://deno.land/x/s3_lite_client@0.5.0/client.ts";
 
-const def = '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
-async function entityTag(entity: Uint8Array) {
-  if (!entity) return def;
-  if (entity.length === 0) return def;
-  const digest = await globalThis.crypto.subtle.digest("SHA-1", entity);
-  const hash = btoa(
-    new Uint8Array(digest).reduce(
-      (data, byte) => data + String.fromCharCode(byte),
-      ""
-    )
-  ).substring(0, 27);
-  return `"${entity.length.toString(16)}-${hash}"`;
-}
-
-const slugify = (text: string) =>
-  text
-    ?.toString()
-    ?.normalize("NFD")
-    ?.replace(/[\u0300-\u036f]/g, "")
-    ?.toLowerCase()
-    ?.trim()
-    ?.replace(/\s+/g, "-")
-    ?.replace(/[^\w-]+/g, "")
-    ?.replace(/--+/g, "-");
-
 interface FileSystem {
   remove(key: string): Promise<void>;
   stat(key: string): Promise<Partial<Deno.FileInfo> & { etag?: string }>;
@@ -181,9 +156,7 @@ const createS3FileSystem = (
       }
     },
     getPresignedUrl: async (method, key) => {
-      const key_ =
-        method === "PUT" ? key.split(".").map(slugify).join(".") : key;
-      return await s3Client.getPresignedUrl(method, key_);
+      return await s3Client.getPresignedUrl(method, key);
     },
     writeFile: async (
       key: string,
@@ -192,11 +165,7 @@ const createS3FileSystem = (
       contentType?: string
     ): Promise<void> => {
       if (!value) return;
-      const sluggedKey = key
-        .split("/")
-        .map((v) => v.split(".").map(slugify).join("."))
-        .join("/");
-      await s3Client.putObject(sluggedKey, value, {
+      await s3Client.putObject(key, value, {
         size,
         partSize: options?.partSize ?? 64 * 1024 * 1024,
         metadata: contentType ? { "Content-Type": contentType } : {},
