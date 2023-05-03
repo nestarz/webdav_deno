@@ -1,6 +1,15 @@
 import { lookup } from "https://deno.land/x/mrmime@v1.0.1/mod.ts";
 import type { FileSystem } from "./fileSystems.ts";
 
+function encodeObjectName(key: string) {
+  const res = encodeURIComponent(key)
+    .replace(/%2F/g, "/")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29");
+  return res;
+}
+
 export function transformKeys(obj: any, prefix = "D:"): any {
   if (Array.isArray(obj)) return obj.map((item) => transformKeys(item));
   if (typeof obj === "object" && obj !== null) {
@@ -91,7 +100,7 @@ export async function buildPropFindResponse(
     }
 
     response.multistatus.response.push({
-      href: encodeURI((resource.startsWith("/") ? "" : "/") + resource),
+      href: encodeObjectName((resource.startsWith("/") ? "" : "/") + resource),
       propstat: [
         { prop, status: "HTTP/1.1 200 OK" },
         { prop: notFound, status: "HTTP/1.1 404 Not Found" },

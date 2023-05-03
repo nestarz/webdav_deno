@@ -5,7 +5,7 @@ import {
   type MatchHandler,
 } from "https://deno.land/x/rutt@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.184.0/http/server.ts";
-import { S3Client } from "https://denopkg.com/nestarz/deno-s3-lite-client@a96e9ba826b7a05ddad7914a5937e45dc55e3290/mod.ts";
+import { S3Client } from "https://denopkg.com/nestarz/deno-s3-lite-client@073c515633c6d2ac1aa9b33c14865a7a945e5b77/mod.ts";
 import { createS3FileSystem, methods } from "./mod.ts";
 
 const auth = (fn: MatchHandler) => {
@@ -29,20 +29,20 @@ const s3 = new S3Client({
   pathStyle: true,
 });
 
-const log = {
-  req: (req: Request, matches: any) => {
-    const headers = Object.fromEntries(req.headers.entries());
-    const pathname = new URL(req.url).pathname;
-    console.log(
-      JSON.stringify({ method: req.method, pathname, headers, matches })
-    );
-    return req;
-  },
-  res: (res: Response) => {
-    const headers = Object.fromEntries(res.headers.entries());
-    console.log(JSON.stringify({ status: res.status, headers }));
-    return res;
-  },
+const log = (req: Request, res: Response) => {
+  const headers = Object.fromEntries(res.headers.entries());
+  const pathname = req?.url ? new URL(req.url).pathname : null;
+  console.log(
+    JSON.stringify({
+      request: {
+        pathname,
+        method: req?.method,
+        headers: Object.fromEntries(req.headers.entries()),
+      },
+      response: { status: res.status, headers },
+    })
+  );
+  return res;
 };
 
 const s3FileSystem = createS3FileSystem(s3);
@@ -50,10 +50,12 @@ const s3FileSystem = createS3FileSystem(s3);
 await serve(
   router({
     "/:path(.*)": auth(async (req: Request, ctx, matches) => {
-      log.req(req, matches);
       const defaultOtherHandler = () => new Response(null, { status: 405 });
       const handler = methods[req.method] ?? defaultOtherHandler;
-      return log.res(await handler(req, { IO: s3FileSystem, ...ctx }, matches));
+      return await log(
+        req,
+        await handler(req, { IO: s3FileSystem, ...ctx }, matches)
+      );
     }),
   }),
   { port: 8004 }

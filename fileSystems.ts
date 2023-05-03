@@ -47,7 +47,7 @@ const createDenoFileSystem = (): FileSystem => ({
 });
 
 function createListObjects(s3Client: S3Client, getCacheKey: () => string) {
-  let cache: S3Object[] = [];
+  let cache: Promise<S3Object[]> = Promise.resolve([]);
   let cacheKey: string;
 
   const listObjects = async function* ({
@@ -56,13 +56,19 @@ function createListObjects(s3Client: S3Client, getCacheKey: () => string) {
     prefix: string;
   }): AsyncGenerator<S3Object> {
     const currentCacheKey = getCacheKey();
-    if (currentCacheKey !== cacheKey) {
-      cacheKey = currentCacheKey;
-      cache = [];
-      for await (const iterator of s3Client.listObjects()) cache.push(iterator);
+    if (currentCacheKey !== cacheKey || cacheKey === undefined) {
+      cache = new Promise((res) =>
+        (async () => {
+          cacheKey = currentCacheKey;
+          const cache = [];
+          for await (const iterator of s3Client.listObjects())
+            cache.push(iterator);
+          return cache;
+        })().then(res)
+      );
     }
 
-    for (const entry of cache) {
+    for (const entry of await cache) {
       if (entry.key.startsWith(prefix)) yield entry;
     }
   };
@@ -78,6 +84,7 @@ function createStatObject(s3Client: S3Client, getCacheKey: () => string) {
     const currentCacheKey = getCacheKey();
     if (currentCacheKey !== cacheKey || !cache[key]) {
       cacheKey = currentCacheKey;
+
       cache[key] = await s3Client.statObject(key);
     }
 
@@ -99,7 +106,13 @@ const createS3FileSystem = (
   const getRandomKey = () => Math.random().toString(36);
   const getCacheKey = () => cacheKey;
   const listObjects = createListObjects(s3Client, getCacheKey);
-  const statObject = createStatObject(s3Client, getCacheKey);
+  const statObject = (key: string): Promise<S3Object> =>
+    listObjects({ prefix: key })
+      .next()
+      .then((v) => {
+        if (v.value?.key !== key) throw Error("Not found " + key);
+        return v.value;
+      });
 
   return {
     refreshCacheKey: () => void (cacheKey = getRandomKey()),
@@ -116,11 +129,11 @@ const createS3FileSystem = (
     stat: async (
       key: string
     ): Promise<Partial<Deno.FileInfo> & { etag?: string }> => {
-      const isDirectory = key.endsWith("/") || key === "";
-      const hasChilds = isDirectory
-        ? (await listObjects({ prefix: key }).next()).value
-        : null;
-      return hasChilds || key === ""
+      const checkHasChilds = async (key: string) => {
+        const nextChild = (await listObjects({ prefix: key }).next()).value;
+        return (nextChild?.key !== key && nextChild) || nextChild?.size === 1;
+      };
+      return key === "" || (key.endsWith("/") && (await checkHasChilds(key)))
         ? { isFile: false, isDirectory: true }
         : await statObject(key).then((obj) => ({
             isFile: true,
@@ -173,12 +186,24 @@ const createS3FileSystem = (
       cacheKey = getRandomKey();
     },
     move: async (key: string, nextKey: string): Promise<void> => {
-      await s3Client.copyObject({ sourceKey: key }, nextKey);
-      await s3Client.deleteObject(key);
+      for await (const iterator of listObjects({
+        prefix: key,
+      })) {
+        const suffix = iterator.key.slice(key.length);
+        const objectKey = nextKey + suffix;
+        await s3Client.copyObject({ sourceKey: iterator.key }, objectKey);
+        await s3Client.deleteObject(iterator.key);
+      }
       cacheKey = getRandomKey();
     },
     copy: async (key: string, nextKey: string): Promise<void> => {
-      await s3Client.copyObject({ sourceKey: key }, nextKey);
+      for await (const iterator of listObjects({
+        prefix: key,
+      })) {
+        const suffix = iterator.key.slice(key.length);
+        const objectKey = nextKey + suffix;
+        await s3Client.copyObject({ sourceKey: iterator.key }, objectKey);
+      }
       cacheKey = getRandomKey();
     },
     ensureDir: async (key: string): Promise<void> => {
